@@ -7,6 +7,7 @@ from app.schemas.email_schema import EmailResponse
 from fastapi.security import APIKeyHeader
 import os
 from dotenv import load_dotenv
+from app.ai.classifier import classify_email
 load_dotenv()
 from .logger import logger
 API_KEY=os.getenv("API_KEY")
@@ -23,7 +24,7 @@ if os.getenv("ENV") != "test":
 
 class EmailRequest(BaseModel):
     email: EmailStr
-    email_type:str
+    content:str
 
 class EmailUpdate(BaseModel):
     email_type:str
@@ -46,8 +47,24 @@ def verify_api_key(api_key: str = Depends(api_key_header)):
 @app.post("/emails", dependencies=[Depends(verify_api_key)],status_code=status.HTTP_201_CREATED)
 def save_email(request: EmailRequest, db: Session = Depends(get_db)):
     try:
-        new_email = Email(email=request.email,
-                          email_type=request.email_type)
+
+        ai_result=classify_email(request.content)
+        ai_email_type=ai_result["email_type"]
+        confidence=ai_result["confidence"]
+        reason=ai_result["reason"]
+        model_version=ai_result["model_version"]
+
+        needs_review=confidence<0.6
+
+        new_email = Email(
+        email=request.email,
+        email_type=ai_email_type,
+        ai_email_type=ai_email_type,
+        confidence_score=confidence,
+        ai_reason=reason,
+        model_version=model_version,
+        needs_review=needs_review
+        )
         db.add(new_email)
         db.commit()
         db.refresh(new_email)

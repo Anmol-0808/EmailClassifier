@@ -6,6 +6,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     UniqueConstraint,
+    Float,
     func,
     text
 )
@@ -18,13 +19,26 @@ class Email(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, nullable=False)
 
+    email_type = Column(String, nullable=False)
+
+    ai_email_type=Column(String,nullable=True)
+    confidence_score=Column(Float,nullable=True)
+    ai_reason=Column(String,nullable=True)
+    model_version=Column(String,nullable=True)
+
+    needs_review=Column(
+        Boolean,
+        nullable=False,
+        server_default=text("FALSE")
+    )
+
     is_active = Column(
         Boolean,
         nullable=False,
         server_default=text("TRUE")
     )
 
-    email_type = Column(String, nullable=False)
+
 
     created_at = Column(
         DateTime,
