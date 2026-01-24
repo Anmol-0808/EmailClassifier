@@ -26,6 +26,12 @@ class Email(Base):
     ai_reason=Column(String,nullable=True)
     model_version=Column(String,nullable=True)
 
+    is_ai_generated=Column(
+        Boolean,
+        nullable=False,
+        server_default=text("TRUE")
+    )
+
     needs_review=Column(
         Boolean,
         nullable=False,
