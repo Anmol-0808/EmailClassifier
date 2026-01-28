@@ -1,85 +1,76 @@
 import os
 import json
-from typing import List
 from openai import OpenAI
 from dotenv import load_dotenv
-from app.models.email import Email
 
 load_dotenv()
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
 MODEL_VERSION = "gpt-4o-mini-v1"
 
 
-def generate_digest(
-    emails: List[Email],
-    range_str: str
-) -> dict:
+def generate_digest(summaries: list, categories: list) -> dict:
     """
-    Generate an inbox digest for a given time window.
+    Generates a time-window inbox digest.
+    Safe, deterministic, production-ready.
     """
 
-    if not emails:
+    if not summaries:
         return {
-            "digest": f"No emails found in the last {range_str}.",
+            "digest": "No emails found for this time period.",
             "model_version": MODEL_VERSION
         }
 
-    email_blocks = []
-
-    for e in emails:
-        email_blocks.append(
-            f"""
-Category: {e.ai_email_type}
-Confidence: {e.confidence_score}
-Content:
-{e.body}
-""".strip()
-        )
-
-    joined_context = "\n\n---\n\n".join(email_blocks)
+    joined_context = "\n".join(
+        f"- [{cat}] {summary}"
+        for summary, cat in zip(summaries, categories)
+    )
 
     prompt = f"""
 You are an inbox intelligence system.
 
-You are analyzing emails from the last {range_str}.
-
-Your task:
-- Identify key themes and patterns
-- Group insights by category
-- Highlight urgent or recurring issues
-- Ignore greetings, signatures, and noise
+Based on the following email summaries, extract patterns and trends.
 
 Rules:
-- Do NOT summarize emails one by one
-- Do NOT repeat email content
-- Produce 4–6 concise, insight-driven bullet points
+- 4 to 6 bullet points
+- No email-by-email repetition
 - Neutral, analytical tone
-- Return ONLY valid JSON
+- Focus on patterns
+- RETURN ONLY JSON
 
 JSON format:
 {{
   "digest": "<digest text>"
 }}
 
-Emails:
+Email summaries:
 {joined_context}
 """
 
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "You generate inbox intelligence digests."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.2,
-        max_tokens=250
-    )
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You generate inbox intelligence digests."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.2,
+            max_tokens=250
+        )
 
-    content = response.choices[0].message.content
-    result = json.loads(content)
+        content = response.choices[0].message.content.strip()
 
-    return {
-        "digest": result["digest"],
-        "model_version": MODEL_VERSION
-    }
+        result = json.loads(content)
+
+        return {
+            "digest": result.get("digest", "Digest could not be generated."),
+            "model_version": MODEL_VERSION
+        }
+
+    except Exception as e:
+       
+        return {
+            "digest": "AI digest generation failed. Please retry later.",
+            "model_version": "fallback-v1"
+        }
