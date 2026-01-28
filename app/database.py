@@ -20,5 +20,4 @@ Base=declarative_base()
 
 from app.models import email,user
 
-if os.getenv("ENV")!="test":
-    Base.metadata.create_all(bind=engine)
+    

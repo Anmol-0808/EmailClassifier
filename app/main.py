@@ -15,15 +15,20 @@ API_KEY=os.getenv("API_KEY")
 api_key_header=APIKeyHeader(name="X-API-Key")
 
 from app.database import SessionLocal, engine, Base
-from app.models.email import Email  
-from app.routes import auth,user
+from app.models.email import Email
+from app.models.google_account import GoogleAccount  
+from app.routes import auth,user,google_auth
 HIGH_CONFIDENCE_THRESHOLD=0.8
 LOW_CONFIDENCE_THRESHOLD=0.6
 
 app = FastAPI()
+if os.getenv("ENV")!="test":
+    Base.metadata.create_all(bind=engine)
 
 app.include_router(auth.router)
 app.include_router(user.router)
+app.include_router(google_auth.router)
+
 class EmailRequest(BaseModel):
     email: EmailStr
     content:str
@@ -93,7 +98,7 @@ def email_analytics(db:Session=Depends(get_db)):
     }
 
 
-@app.post("/emails/reclassify", dependencies=[Depends(verify_api_key)])
+@app.post("/emails/reclassify")
 def reclassify_emails(limit: int = 10, db: Session = Depends(get_db)):
     """
     Re-run AI classification on existing emails.
@@ -137,7 +142,7 @@ def reclassify_emails(limit: int = 10, db: Session = Depends(get_db)):
 
 
 
-@app.post("/emails", dependencies=[Depends(verify_api_key)],status_code=status.HTTP_201_CREATED)
+@app.post("/emails",status_code=status.HTTP_201_CREATED)
 def save_email(request: EmailRequest, db: Session = Depends(get_db)):
     try:
 
@@ -204,7 +209,7 @@ def get_emails(limit:int=10,offset:int =0,db:Session=Depends(get_db)):
     )
     return emails
 
-@app.patch("/emails/{email_id}",dependencies=[Depends(verify_api_key)],response_model=EmailResponse)
+@app.patch("/emails/{email_id}",response_model=EmailResponse)
 def update_email_type(
     email_id:int,
     request: EmailUpdate,
@@ -254,7 +259,7 @@ def update_email_type(
             detail="Invalid Email type or Duplicate email"
         )
     
-@app.delete("/emails/{email_id}",dependencies=[Depends(verify_api_key)],status_code=204)
+@app.delete("/emails/{email_id}",status_code=204)
 def delete_email(
     email_id:int,
     db: Session=Depends(get_db)
