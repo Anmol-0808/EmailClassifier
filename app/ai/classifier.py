@@ -17,28 +17,46 @@ def classify_email(email: str) -> dict:
     """
 
     prompt = f"""
-You are an email classification system.
+You are a strict email classification system for a backend product.
 
-Classify the email into ONE of these categories:
-- newsletter
-- support
-- marketing
+Your task is to classify the email into EXACTLY ONE of the following categories:
+
+1. newsletter
+   - Informational or recurring updates
+   - Blog posts, product updates, announcements
+   - No direct selling or urgency
+
+2. marketing
+   - Promotional or sales-driven content
+   - Discounts, offers, pricing, upgrades
+   - Strong call-to-action (buy, upgrade, limited offer)
+
+3. support
+   - User asking for help or reporting an issue
+   - Account problems, bugs, errors, requests
+   - Conversational or problem-solving tone
 
 Rules:
+- Choose ONLY ONE category
+- Do NOT invent new categories
+- If unsure between newsletter and marketing:
+  - choose marketing ONLY if there is a sales or conversion intent
+- If the email asks for help or reports a problem, ALWAYS choose support
 - Return ONLY valid JSON
-- No extra text
+- No explanations outside JSON
 - Confidence must be a number between 0 and 1
 
-JSON format:
+Return JSON in this format:
 {{
-  "email_type": "<one of newsletter|support|marketing>",
+  "email_type": "<newsletter | support | marketing>",
   "confidence": <float>,
-  "reason": "<short explanation>"
+  "reason": "<short explanation referencing the rules above>"
 }}
 
-Email:
+Email content:
 \"\"\"{email}\"\"\"
 """
+
     try:
         response=client.chat.completions.create(
             model="gpt-4o-mini",

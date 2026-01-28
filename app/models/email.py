@@ -18,10 +18,12 @@ class Email(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, nullable=False)
+    body = Column(String, nullable=False)
 
     email_type = Column(String, nullable=False)
 
     ai_email_type=Column(String,nullable=True)
+    ai_summary = Column(String, nullable=True)
     confidence_score=Column(Float,nullable=True)
     ai_reason=Column(String,nullable=True)
     model_version=Column(String,nullable=True)
@@ -51,6 +53,12 @@ class Email(Base):
         nullable=False,
         server_default=func.now()
     )
+    received_at = Column(
+    DateTime,
+    nullable=False,
+    index=True
+    )
+
 
     __table_args__ = (
         CheckConstraint(
