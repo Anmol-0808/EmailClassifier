@@ -1,5 +1,7 @@
-import base64
 from typing import Dict
+import base64
+from datetime import datetime
+from email.utils import parsedate_to_datetime
 
 
 def _decode_base64(data: str) -> str:
@@ -23,22 +25,27 @@ def parse_message(message: Dict) -> Dict:
         elif h["name"] == "From":
             sender = h["value"]
         elif h["name"] == "Date":
-            received_at = h["value"]
+            try:
+                received_at = parsedate_to_datetime(h["value"])
+            except Exception:
+                received_at = None
 
     body = ""
 
-    if "body" in payload and payload["body"].get("data"):
+    if payload.get("body", {}).get("data"):
         body = _decode_base64(payload["body"]["data"])
 
-    elif "parts" in payload:
+    elif payload.get("parts"):
         for part in payload["parts"]:
             if part.get("mimeType") == "text/plain":
                 body = _decode_base64(part["body"].get("data", ""))
                 break
 
     return {
+        "gmail_message_id": message.get("id"),
         "subject": subject,
         "sender": sender,
         "body": body,
-        "received_at": received_at
+        "snippet": message.get("snippet", ""),
+        "received_at": received_at, 
     }

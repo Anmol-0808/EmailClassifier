@@ -9,19 +9,28 @@ from app.schemas.email_schema import EmailResponse
 from app.utils.time_filter import get_time_cutoff
 from app.ai.digest_generator import generate_digest
 from app.ai.classifier import classify_email
-
+from app.core.email_service import create_email
 from app.routes import auth, user, google_auth
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
 Base.metadata.create_all(bind=engine)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 app.include_router(auth.router)
 app.include_router(user.router)
 app.include_router(google_auth.router)
 
 
-# ---------------- DB ----------------
 def get_db():
     db = SessionLocal()
     try:
@@ -30,27 +39,15 @@ def get_db():
         db.close()
 
 
-# ---------------- EMAIL CRUD ----------------
+
+
 @app.post("/emails", status_code=status.HTTP_201_CREATED)
 def save_email(request: dict, db: Session = Depends(get_db)):
-    ai = classify_email(request["content"])
-
-    email = Email(
-        email=request["email"],
+    email = create_email(
+        db=db,
+        sender=request["email"],
         body=request["content"],
-        email_type=ai["email_type"],
-        ai_email_type=ai["email_type"],
-        confidence_score=ai["confidence"],
-        ai_reason=ai["reason"],
-        model_version=ai["model_version"],
-        is_ai_generated=True,
-        needs_review=ai["confidence"] < 0.8,
-        received_at=datetime.utcnow()
     )
-
-    db.add(email)
-    db.commit()
-    db.refresh(email)
 
     return {
         "id": email.id,
@@ -60,17 +57,18 @@ def save_email(request: dict, db: Session = Depends(get_db)):
     }
 
 
+
 @app.get("/emails", response_model=List[EmailResponse])
 def get_emails(db: Session = Depends(get_db)):
     return (
         db.query(Email)
         .filter(Email.is_active == True)
-        .order_by(Email.created_at.desc())
+        .order_by(Email.received_at.desc())
         .all()
     )
 
 
-# ---------------- DIGEST (DAY 10) ----------------
+
 @app.get("/emails/digest")
 def get_email_digest(
     range: str = Query("7d", description="7d | 15d | 30d"),
