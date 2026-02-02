@@ -18,7 +18,6 @@ from app.database import SessionLocal
 from app.models.user import User
 from app.models.google_account import GoogleAccount
 
-
 from app.core.gmail_client import list_messages, get_message
 from app.core.gmail_parser import parse_message
 from app.core.email_dedup import email_exists
@@ -45,8 +44,9 @@ def google_login():
 @router.get("/callback")
 def google_callback(code: str):
     db = SessionLocal()
+
     try:
-   
+       
         token_response = requests.post(
             GOOGLE_TOKEN_URL,
             data={
@@ -65,10 +65,9 @@ def google_callback(code: str):
                 detail="Failed to fetch token from Google",
             )
 
-        tokens = token_response.json()
-        access_token = tokens["access_token"]
+        access_token = token_response.json()["access_token"]
 
-
+       
         userinfo_response = requests.get(
             GOOGLE_USERINFO_URL,
             headers={"Authorization": f"Bearer {access_token}"},
@@ -109,7 +108,14 @@ def google_callback(code: str):
             db.add(google_account)
             db.commit()
 
+      
         messages = list_messages(access_token, max_results=50)
+
+        BLOCKED_CATEGORIES = {
+            "CATEGORY_PROMOTIONS",
+            "CATEGORY_UPDATES",
+            "CATEGORY_SOCIAL",
+        }
 
         for msg in messages:
             raw_message = get_message(access_token, msg["id"])
@@ -119,7 +125,7 @@ def google_callback(code: str):
             if not gmail_message_id:
                 continue
 
-
+            
             if email_exists(
                 db,
                 gmail_message_id=gmail_message_id,
@@ -127,7 +133,19 @@ def google_callback(code: str):
             ):
                 continue
 
- 
+            labels = parsed.get("labels", [])
+
+                      
+            if "INBOX" not in labels:
+                continue
+
+            if "SPAM" in labels or "TRASH" in labels:
+                continue
+
+            if any(label in labels for label in BLOCKED_CATEGORIES):
+                continue
+
+           
             create_email(
                 db=db,
                 user_id=user.id,
@@ -137,7 +155,7 @@ def google_callback(code: str):
                 received_at=parsed["received_at"],
             )
 
-
+      
         jwt_token = create_access_token({"sub": user.email})
 
         frontend_url = "http://localhost:3000/auth/callback"

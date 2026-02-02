@@ -22,25 +22,38 @@ def summarize_email(body: str) -> dict:
         }
 
     prompt = f"""
-You are an email summarization system.
+You are an email understanding system for an AI inbox.
 
-Summarize the email in **one or two short sentences**.
-Rules:
-- Be neutral and factual
-- Do NOT add advice
-- Do NOT add urgency
-- Do NOT add interpretation
-- Do NOT exceed 25 words
-- Return ONLY valid JSON
+Your task:
+1. Summarize the email in **15–25 words**, focusing on intent.
+2. Detect whether the email content references or implies:
+   - charts
+   - graphs
+   - tables
+   - numerical trends
+   - structured lists or metrics
+3. If such elements are present, briefly describe **what they represent**.
+4. If no such elements exist, explicitly say so.
+
+STRICT RULES:
+- Base your response ONLY on the provided text.
+- Do NOT assume visuals unless clearly implied by text.
+- Do NOT add advice, urgency, or interpretation.
+- Do NOT exceed word limits.
+- Do NOT hallucinate charts or data.
+- Return ONLY valid JSON.
 
 JSON format:
 {{
-  "summary": "<short summary>"
+  "summary": "<15–25 word neutral summary>",
+  "has_structured_data": true | false,
+  "structured_data_description": "<short description or null>"
 }}
 
 Email:
 \"\"\"{body}\"\"\"
 """
+
 
     try:
         response = client.chat.completions.create(
@@ -57,14 +70,20 @@ Email:
         result = json.loads(content)
 
         return {
-            "summary": result.get("summary"),
-            "model_version": MODEL_VERSION,
-            "reason": "success"
-        }
+    "summary": result.get("summary"),
+    "has_structured_data": result.get("has_structured_data"),
+    "structured_data_description": result.get("structured_data_description"),
+    "model_version": MODEL_VERSION,
+    "reason": "success"
+}
+
 
     except Exception as e:
         return {
-            "summary": None,
-            "model_version": "fallback-v1",
-            "reason": f"summarization failed: {str(e)}"
-        }
+    "summary": None,
+    "has_structured_data": False,
+    "structured_data_description": None,
+    "model_version": "fallback-v1",
+    "reason": f"summarization failed: {str(e)}"
+}
+

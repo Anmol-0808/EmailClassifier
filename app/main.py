@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime
-
+from fastapi import Path
 from app.database import SessionLocal, engine, Base
 from app.models.email import Email
 from app.schemas.email_schema import EmailResponse
@@ -12,6 +12,7 @@ from app.ai.classifier import classify_email
 from app.core.email_service import create_email
 from app.routes import auth, user, google_auth
 from fastapi.middleware.cors import CORSMiddleware
+from app.models.email_digest import EmailDigest
 
 app = FastAPI()
 
@@ -67,7 +68,24 @@ def get_emails(db: Session = Depends(get_db)):
         .all()
     )
 
-
+@app.get("/dogests")
+def get_digest_history(db:Session=Depends(get_db)):
+    digests=(
+        db.query(EmailDigest)
+        .order_by(EmailDigest.created_at.desc())
+        .all()
+    )
+    return [
+        {
+            "id": d.id,
+            "range": d.range,
+            "summary": d.content,
+            "email_count": d.email_count,
+            "model": d.model_version,
+            "created_at": d.created_at,
+        }
+        for d in digests
+    ]
 
 @app.get("/emails/digest")
 def get_email_digest(
@@ -101,10 +119,56 @@ def get_email_digest(
         summaries=summaries,
         categories=categories
     )
+    digest_row =EmailDigest(
+        range=range,
+        content=digest["summary"],
+        email_count=digest["email_count"],
+        model_version=digest["model"],
+    )
+    db.add(digest_row)
+    db.commit()
+    db.refresh(digest_row)
 
     return {
-        "range": range,
-        "email_count": len(emails),
-        "digest": digest["digest"],
-        "model_version": digest["model_version"]
+    "summary": digest["summary"],
+    "email_count": digest["email_count"],
+    "model": digest["model"],
+    }
+
+@app.patch("/emails/{email_id}")
+def override_email_category(
+    email_id: int = Path(..., gt=0),
+    payload: dict = None,
+    db: Session = Depends(get_db),
+):
+    email = db.query(Email).filter(
+        Email.id == email_id,
+        Email.is_active == True
+    ).first()
+
+    if not email:
+        raise HTTPException(
+            status_code=404,
+            detail="Email not found"
+        )
+
+    new_category = payload.get("email_type")
+
+    if new_category not in ["marketing", "support", "newsletter"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid email category"
+        )
+
+    email.email_type = new_category
+    email.needs_review = False
+    email.is_ai_generated = False
+
+    db.commit()
+    db.refresh(email)
+
+    return {
+        "id": email.id,
+        "email_type": email.email_type,
+        "needs_review": email.needs_review,
     }

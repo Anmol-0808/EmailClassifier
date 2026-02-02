@@ -6,19 +6,26 @@ def list_messages(access_token:str,max_results:int =10):
     headers={
         "Authorization":f"Bearer {access_token}"
     }
-    params={
-        "maxResults":max_results
+    params = {
+    "maxResults": max_results,
+    "labelIds": ["INBOX"],
+    "q": "-in:spam -in:trash"
     }
+
     response=requests.get(url,headers=headers,params=params)
     response.raise_for_status()
     return response.json().get("messages",[])
 
-def get_message(access_token:str,message_id:str):
-    url=f"{GMAIL_API_BASE}/users/me/messages/{message_id}"
-    headers={
-        "Authorization":f"Bearer {access_token}"
+def get_message(access_token: str, message_id: str):
+    url = f"{GMAIL_API_BASE}/users/me/messages/{message_id}"
+    headers = {
+        "Authorization": f"Bearer {access_token}"
+    }
+    params = {
+        "format": "metadata",
+        "metadataHeaders": ["From", "Subject", "Date"]
     }
 
-    response=requests.get(url,headers=headers)
+    response = requests.get(url, headers=headers, params=params)
     response.raise_for_status()
     return response.json()
