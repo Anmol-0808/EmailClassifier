@@ -13,6 +13,7 @@ from app.core.email_service import create_email
 from app.routes import auth, user, google_auth
 from fastapi.middleware.cors import CORSMiddleware
 from app.models.email_digest import EmailDigest
+from typing import Optional
 
 app = FastAPI()
 
@@ -57,18 +58,37 @@ def save_email(request: dict, db: Session = Depends(get_db)):
         "created_at": email.created_at
     }
 
+@app.get("/emails")
+def get_emails(
+    pageToken: Optional[str] = Query(None),
+    limit: int = Query(10, le=50),
+    db: Session = Depends(get_db),
+):
+    offset = int(pageToken) if pageToken else 0
 
-
-@app.get("/emails", response_model=List[EmailResponse])
-def get_emails(db: Session = Depends(get_db)):
-    return (
+    query = (
         db.query(Email)
-        .filter(Email.is_active == True)
-        .order_by(Email.received_at.desc())
-        .all()
+        .order_by(
+            Email.received_at.desc().nullslast(),
+            Email.id.desc()
+        )
     )
 
-@app.get("/dogests")
+    total_count = query.count()
+
+    emails = query.offset(offset).limit(limit).all()
+
+    next_page_token = (
+        str(offset + limit) if offset + limit < total_count else None
+    )
+
+    return {
+        "emails": emails,
+        "nextPageToken": next_page_token
+    }
+
+
+@app.get("/digests")
 def get_digest_history(db:Session=Depends(get_db)):
     digests=(
         db.query(EmailDigest)

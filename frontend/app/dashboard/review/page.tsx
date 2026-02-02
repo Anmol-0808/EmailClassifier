@@ -5,11 +5,10 @@ import { useRouter } from "next/navigation";
 import { isLoggedIn, getAuthHeader } from "@/app/utils/auth";
 
 import NeoCard from "@/app/components/neo/NeoCard";
-import NeoButton from "@/app/components/neo/NeoButton";
 import NeoBadge from "@/app/components/neo/NeoBadge";
 import { confidenceToTrust } from "@/app/utils/trust";
 
-/* -------------------- Types -------------------- */
+
 type Email = {
   id: number;
   email: string;
@@ -21,7 +20,7 @@ type Email = {
   ai_reason?: string | null;
 };
 
-/* -------------------- Helpers -------------------- */
+
 const stripHtml = (html: string) =>
   html.replace(/<[^>]*>?/gm, "");
 
@@ -34,7 +33,7 @@ const getSummary = (email: Email) => {
   return clean.split(" ").slice(0, 20).join(" ") + "…";
 };
 
-/* -------------------- Page -------------------- */
+
 export default function NeedsReviewPage() {
   const router = useRouter();
 
@@ -52,9 +51,21 @@ export default function NeedsReviewPage() {
         ...getAuthHeader(),
       },
     })
-      .then((res) => res.json())
-      .then((data: Email[]) => {
-        setEmails(data.filter((e) => e.needs_review));
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("Failed to fetch emails");
+        }
+        return res.json();
+      })
+      .then((data) => {
+        const allEmails: Email[] = Array.isArray(data)
+          ? data
+          : data.emails ?? [];
+
+        setEmails(allEmails.filter((e) => e.needs_review));
+      })
+      .catch(() => {
+        setEmails([]);
       })
       .finally(() => setLoading(false));
   }, [router]);

@@ -9,7 +9,7 @@ import NeoButton from "@/app/components/neo/NeoButton";
 import NeoBadge from "@/app/components/neo/NeoBadge";
 import { confidenceToTrust } from "@/app/utils/trust";
 
-/* -------------------- Types -------------------- */
+
 type Email = {
   id: number;
   email: string;
@@ -22,7 +22,7 @@ type Email = {
   ai_reason?: string | null;
 };
 
-/* -------------------- Helpers -------------------- */
+
 const stripHtml = (html: string) =>
   html.replace(/<[^>]*>?/gm, "");
 
@@ -41,7 +41,7 @@ const getSummary = (email: Email) => {
   return clean.split(" ").slice(0, 20).join(" ") + "…";
 };
 
-/* -------------------- Page -------------------- */
+
 export default function DashboardPage() {
   const router = useRouter();
 
@@ -50,7 +50,10 @@ export default function DashboardPage() {
   const [overrideCategory, setOverrideCategory] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
+
+  const [nextPageToken, setNextPageToken] = useState<string | null>(null);
 
   const [trustFilter, setTrustFilter] = useState<
     "Auto" | "Suggested" | "Required" | null
@@ -60,7 +63,7 @@ export default function DashboardPage() {
     "marketing" | "support" | "newsletter" | null
   >(null);
 
-  /* -------------------- Auth + Fetch -------------------- */
+ 
   useEffect(() => {
     if (!isLoggedIn()) {
       router.push("/login");
@@ -76,8 +79,15 @@ export default function DashboardPage() {
         if (!res.ok) throw new Error("Failed to fetch emails");
         return res.json();
       })
-      .then((data: Email[]) => {
-        setEmails(data);
+      .then((data) => {
+       
+        if (Array.isArray(data)) {
+          setEmails(data);
+          setNextPageToken(null);
+        } else {
+          setEmails(data.emails ?? []);
+          setNextPageToken(data.nextPageToken ?? null);
+        }
       })
       .catch(() => {
         setError("Could not load emails");
@@ -87,6 +97,40 @@ export default function DashboardPage() {
       });
   }, [router]);
 
+  
+  const loadMoreEmails = async () => {
+    if (!nextPageToken || loadingMore) return;
+
+    setLoadingMore(true);
+
+    try {
+      const res = await fetch(
+        `http://localhost:8000/emails?pageToken=${nextPageToken}`,
+        {
+          headers: {
+            ...getAuthHeader(),
+          },
+        }
+      );
+
+      if (!res.ok) throw new Error("Failed");
+
+      const data = await res.json();
+
+      if (!Array.isArray(data?.emails)) {
+        throw new Error("Invalid pagination response");
+      }
+
+      setEmails((prev) => [...prev, ...data.emails]);
+      setNextPageToken(data.nextPageToken ?? null);
+    } catch {
+      alert("Failed to load more emails");
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  
   const filteredEmails = emails.filter((email) => {
     const trust = confidenceToTrust(email.confidence_score);
 
@@ -96,6 +140,7 @@ export default function DashboardPage() {
     return true;
   });
 
+  
   const saveOverride = async () => {
     if (!selectedEmail || !overrideCategory) return;
 
@@ -142,10 +187,10 @@ export default function DashboardPage() {
   if (loading) return <p className="p-10">Loading emails…</p>;
   if (error) return <p className="p-10">{error}</p>;
 
-  /* -------------------- UI -------------------- */
+  
   return (
     <div className="flex h-screen bg-white text-black overflow-hidden">
-      {/* ---------------- Sidebar ---------------- */}
+     
       <NeoCard className="m-6 w-[220px] bg-black text-white">
         <h2 className="mb-8 text-lg font-bold">MailMind</h2>
 
@@ -177,77 +222,13 @@ export default function DashboardPage() {
         </nav>
       </NeoCard>
 
-      {/* ---------------- Main Content ---------------- */}
+      
       <main className="flex-1 p-10 overflow-y-auto">
         <h1 className="mb-6 text-2xl font-bold">Inbox</h1>
 
-        {/* Filters */}
-        <NeoCard className="mb-8 bg-black text-white">
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-gray-400 w-20">
-                Trust
-              </span>
-
-              {["Auto", "Suggested", "Required"].map((level) => (
-                <NeoButton
-                  key={level}
-                  onClick={() =>
-                    setTrustFilter(
-                      trustFilter === level ? null : level
-                    )
-                  }
-                  className={`px-5 py-2 ${
-                    trustFilter === level
-                      ? "bg-gray-900 shadow-[4px_4px_0_0_#fff]"
-                      : "bg-black border-gray-600"
-                  }`}
-                >
-                  {level}
-                </NeoButton>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-gray-400 w-20">
-                Category
-              </span>
-
-              {["marketing", "support", "newsletter"].map(
-                (cat) => (
-                  <NeoButton
-                    key={cat}
-                    onClick={() =>
-                      setCategoryFilter(
-                        categoryFilter === cat ? null : cat
-                      )
-                    }
-                    className={`px-5 py-2 ${
-                      categoryFilter === cat
-                        ? "bg-gray-900 shadow-[4px_4px_0_0_#fff]"
-                        : "bg-black border-gray-600"
-                    }`}
-                  >
-                    {cat.toUpperCase()}
-                  </NeoButton>
-                )
-              )}
-            </div>
-          </div>
-        </NeoCard>
-
-        {/* Emails */}
-        {filteredEmails.length === 0 && (
-          <NeoCard className="bg-black text-gray-400">
-            No emails match the selected filters.
-          </NeoCard>
-        )}
-
         <ul className="list-none p-0">
           {filteredEmails.map((email) => {
-            const trust = confidenceToTrust(
-              email.confidence_score
-            );
+            const trust = confidenceToTrust(email.confidence_score);
 
             return (
               <li
@@ -261,14 +242,10 @@ export default function DashboardPage() {
                 <NeoCard
                   className="bg-black text-white"
                   style={{
-                    borderColor: confidenceColor(
-                      email.confidence_score
-                    ),
+                    borderColor: confidenceColor(email.confidence_score),
                   }}
                 >
-                  <div className="font-bold mb-2">
-                    {email.email}
-                  </div>
+                  <div className="font-bold mb-2">{email.email}</div>
 
                   <div className="mb-3 text-gray-300">
                     {getSummary(email)}
@@ -279,41 +256,38 @@ export default function DashboardPage() {
                       {email.email_type.toUpperCase()}
                     </span>
 
-                    <NeoBadge
-                      label={trust.label}
-                      tone={trust.tone}
-                    />
+                    <NeoBadge label={trust.label} tone={trust.tone} />
                   </div>
                 </NeoCard>
               </li>
             );
           })}
         </ul>
+
+        
+        {nextPageToken && (
+          <div className="mt-8 flex justify-center">
+            <NeoButton onClick={loadMoreEmails} disabled={loadingMore}>
+              {loadingMore ? "Loading…" : "Load More"}
+            </NeoButton>
+          </div>
+        )}
       </main>
 
-      {/* ---------------- Review Panel ---------------- */}
+    
       {selectedEmail && (() => {
-        const trust = confidenceToTrust(
-          selectedEmail.confidence_score
-        );
+        const trust = confidenceToTrust(selectedEmail.confidence_score);
 
         return (
           <div className="fixed top-0 right-0 w-[420px] h-screen bg-black border-l-4 border-gray-700 p-6 overflow-y-auto z-50 text-white">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold">
-                Email Review
-              </h3>
-              <NeoBadge
-                label={trust.label}
-                tone={trust.tone}
-              />
+              <h3 className="text-lg font-bold">Email Review</h3>
+              <NeoBadge label={trust.label} tone={trust.tone} />
             </div>
 
             <NeoCard className="bg-black text-gray-300 mb-4">
               <strong>AI Summary</strong>
-              <p className="mt-2">
-                {getSummary(selectedEmail)}
-              </p>
+              <p className="mt-2">{getSummary(selectedEmail)}</p>
             </NeoCard>
 
             <label className="block mb-1 text-sm">
@@ -322,9 +296,7 @@ export default function DashboardPage() {
 
             <select
               value={overrideCategory ?? ""}
-              onChange={(e) =>
-                setOverrideCategory(e.target.value)
-              }
+              onChange={(e) => setOverrideCategory(e.target.value)}
               className="w-full p-2 bg-black text-white border-2 border-gray-500"
             >
               <option value="marketing">Marketing</option>
@@ -334,10 +306,7 @@ export default function DashboardPage() {
 
             <NeoButton
               onClick={saveOverride}
-              disabled={
-                overrideCategory ===
-                selectedEmail.email_type
-              }
+              disabled={overrideCategory === selectedEmail.email_type}
               className="mt-4 w-full"
             >
               Save Override

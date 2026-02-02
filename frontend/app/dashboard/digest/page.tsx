@@ -32,7 +32,7 @@ export default function DigestPage() {
   const [history, setHistory] = useState<DigestHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  /* -------------------- Fetch Digest History -------------------- */
+
   useEffect(() => {
     const fetchHistory = async () => {
       setHistoryLoading(true);
@@ -50,7 +50,7 @@ export default function DigestPage() {
         const data = await res.json();
         setHistory(data);
       } catch {
-        // history failure should not break page
+
       } finally {
         setHistoryLoading(false);
       }
@@ -59,7 +59,6 @@ export default function DigestPage() {
     fetchHistory();
   }, []);
 
-  /* -------------------- Generate Digest -------------------- */
   const generateDigest = async () => {
     setLoading(true);
     setError("");
@@ -88,7 +87,7 @@ export default function DigestPage() {
     }
   };
 
-  /* -------------------- UI -------------------- */
+
   return (
     <div className="p-10 bg-white text-black min-h-screen">
       {/* Header */}
@@ -104,7 +103,7 @@ export default function DigestPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {/* ---------------- Digest Panel ---------------- */}
+  
         <NeoCard className="bg-black text-white md:col-span-2">
           {/* Range Selector */}
           <div className="flex gap-3 mb-4">
@@ -123,7 +122,7 @@ export default function DigestPage() {
             ))}
           </div>
 
-          {/* Digest Body */}
+  
           <div className="border-2 border-dashed border-gray-600 p-5 mb-5 min-h-[200px]">
             {loading && (
               <p className="text-gray-400">Generating digest…</p>
@@ -172,7 +171,7 @@ export default function DigestPage() {
           </NeoButton>
         </NeoCard>
 
-        {/* ---------------- Digest History ---------------- */}
+
         <NeoCard className="bg-black text-white">
           <h2 className="font-bold mb-4">Digest History</h2>
 

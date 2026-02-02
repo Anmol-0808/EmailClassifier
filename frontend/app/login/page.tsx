@@ -12,17 +12,17 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-white">
       <NeoCard className="w-full max-w-md bg-black text-white border-white">
         <div className="flex flex-col gap-6">
-          {/* Header */}
+  
           <div className="flex flex-col gap-2">
             <h1 className="text-3xl font-bold text-white">
-              MailMind
+              Mail-Mind
             </h1>
             <p className="text-sm text-gray-300">
               An AI-powered inbox with trust-based email classification
             </p>
           </div>
 
-          {/* CTA */}
+ 
           <NeoButton
             onClick={handleLogin}
             className="w-full py-3 text-base"
@@ -30,7 +30,7 @@ export default function LoginPage() {
             Continue with Google
           </NeoButton>
 
-          {/* Trust line */}
+        
           <p className="text-xs text-gray-400">
             Secure Google authentication. We never read your emails without permission.
           </p>

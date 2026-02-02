@@ -33,7 +33,7 @@ def sync_gmail(
     db: Session = Depends(get_db)
 ):
     google_account = current_user.google_account
-    messages = list_messages(google_account.access_token, max_results=5)
+    messages = list_messages(google_account.access_token, max_results=50)
 
     parsed_emails = []
 
