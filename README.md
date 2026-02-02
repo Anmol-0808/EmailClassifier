@@ -1,9 +1,3 @@
-Love this step — a good **README = instant credibility** on GitHub 🔥
-I’ll give you a **clean, professional, recruiter-friendly README** tailored exactly to *your project*.
-
-You can **copy–paste this directly** into `README.md`.
-
----
 
 # 📬 MailMind – AI-Powered Gmail Inbox Intelligence
 
